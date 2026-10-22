@@ -137,7 +137,7 @@ function pwGuardada() { try { return localStorage.getItem(PWKEY) || sessionStora
 function guardarPw(pw, recordar) { try { (recordar ? localStorage : sessionStorage).setItem(PWKEY, pw); } catch {} }
 const cuenta = ev => { try { window.contar && window.contar(ev); } catch {} };
 
-const DOCS = [{"id": "guia", "nombre": "LAST SEEN - Guia del Game Master.pdf", "titulo": "Guía del game master", "desc": "Historia, montaje, guion, mando, pistas y soluciones.", "bytes": 7784881}, {"id": "imprimibles", "nombre": "LAST SEEN - Imprimibles.pdf", "titulo": "Imprimibles", "desc": "Todo lo que se imprime: carteles, pruebas, tarjetas de testigos con QR y material de juego.", "bytes": 20379932}, {"id": "compras", "nombre": "LAST SEEN - Lista de compra.pdf", "titulo": "Lista de la compra", "desc": "Candados, luces y ambientación, con enlaces, precios y plan B casero.", "bytes": 621867}];
+const DOCS = [{"id": "guia", "nombre": "LAST SEEN - Guia del Game Master.pdf", "titulo": "Guía del game master", "desc": "Historia, montaje, guion, mando, pistas y soluciones.", "bytes": 7784881}, {"id": "imprimibles", "nombre": "LAST SEEN - Imprimibles.pdf", "titulo": "Imprimibles", "desc": "Todo lo que se imprime: carteles, pruebas, tarjetas de testigos con QR y material de juego.", "bytes": 26010448}, {"id": "compras", "nombre": "LAST SEEN - Lista de compra.pdf", "titulo": "Lista de la compra", "desc": "Candados, luces y ambientación, con enlaces, precios y plan B casero.", "bytes": 621867}];
 function tam(n) { return (n / 1048576).toFixed(1).replace(".", ",") + " MB"; }
 function pintarDocs() {
   const box = document.getElementById("docs"); box.innerHTML = "";
