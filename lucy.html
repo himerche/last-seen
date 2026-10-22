@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Lucy's Phone</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070708">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Last Seen">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icono-192.png">
+<link rel="stylesheet" href="fonts.css">
+<style>html,body{margin:0;background:#050506}body{color:#f2f2f5;font:18px 'Inter',-apple-system,sans-serif;display:grid;place-items:center;min-height:100vh;text-align:center;padding-inline:16px}a{color:#ff6b77}</style>
+</head>
+<body>
+<p id="msg">● Connecting to Lucy's phone…</p>
+<script>
+const PWKEY = "lastseen-pw";
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const limpiar = pw => pw.normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+let _key = null;
+async function clave(pw) {
+  const meta = await (await fetch("meta.json", { cache: "no-cache" })).json();
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(limpiar(pw)), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64(meta.salt), iterations: meta.iter, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+}
+async function abrir(nombre, key) {
+  const buf = new Uint8Array(await (await fetch(nombre)).arrayBuffer());
+  return crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12) }, key || _key, buf.slice(12));
+}
+function pwGuardada() { try { return localStorage.getItem(PWKEY) || sessionStorage.getItem(PWKEY); } catch { return null; } }
+function guardarPw(pw, recordar) { try { (recordar ? localStorage : sessionStorage).setItem(PWKEY, pw); } catch {} }
+const cuenta = ev => { try { window.contar && window.contar(ev); } catch {} };
+
+(async () => {
+  const pw = pwGuardada();
+  if (!pw) { location.replace("index.html"); return; }
+  try {
+    _key = await clave(pw);
+    const html = new TextDecoder().decode(await abrir("app.bin"));
+    document.open(); document.write(html); document.close();
+  } catch {
+    document.getElementById("msg").innerHTML = 'No se ha podido abrir. <a href="index.html">Vuelve a la portada</a> y escribe la contraseña.';
+  }
+})();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+</script>
+</body>
+</html>

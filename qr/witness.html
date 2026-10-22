@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex">
+<title>Witness Statement</title>
+<meta name="description" content="Riverside School — witness statement">
+<style>
+:root{--bg:#050505;--ink:#e9e6e0;--dim:#8d8880;--red:#c80f1e;color-scheme:dark}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#050505; } }
+:root[data-theme="dark"]{ --bg:#050505; }
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+body{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:max(24px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));text-align:center;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,rgba(120,0,10,.22),transparent 65%),radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.85) 100%);animation:flick 6s infinite}
+@keyframes flick{0%,100%{opacity:1}47%{opacity:1}48%{opacity:.6}49%{opacity:1}80%{opacity:.85}81%{opacity:1}}
+canvas#grain{position:fixed;inset:0;width:100%;height:100%;opacity:.07;pointer-events:none;image-rendering:pixelated}
+.k{font-size:12px;letter-spacing:.32em;color:var(--red);font-weight:800;text-transform:uppercase;position:relative}
+.n{font-family:"Courier New",ui-monospace,monospace;font-size:15px;letter-spacing:.12em;color:var(--dim);position:relative}
+h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(30px,9vw,46px);line-height:1.1;font-weight:700;position:relative;max-width:16ch}
+.play{position:relative;width:min(62vw,250px);height:min(62vw,250px);border-radius:50%;border:3px solid #3a3a3a;background:radial-gradient(circle at 50% 40%,#1c1c1c,#0a0a0a);display:grid;place-items:center;cursor:pointer;color:var(--ink);padding:0}
+.play svg.ic{width:34%;height:34%;fill:currentColor}
+.play svg.ring{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);transform:rotate(-90deg)}
+.ring circle{fill:none;stroke:var(--red);stroke-width:3;stroke-linecap:round}
+.play.loading{opacity:.5}
+.play:focus-visible{outline:3px solid var(--red);outline-offset:6px}
+.again{position:relative;font:inherit;font-size:18px;font-weight:700;padding:14px 26px;border-radius:999px;border:2px solid #3a3a3a;background:#111;color:var(--ink);cursor:pointer;min-height:48px}
+.msg{position:relative;font-size:16px;color:var(--dim);min-height:22px;max-width:30ch;line-height:1.4}
+.msg.err{color:#ff7c86}
+.foot{position:relative;font-size:11px;letter-spacing:.2em;color:#4a4744;text-transform:uppercase}
+</style>
+</head>
+<body>
+<canvas id="grain" width="90" height="160" aria-hidden="true"></canvas>
+<div class="k">Riverside School · Incident 31/10</div>
+<div class="n" id="num">Witness statement</div>
+<h1 id="who">—</h1>
+<button class="play loading" id="play" type="button" aria-label="Play statement">
+  <svg class="ring" viewBox="0 0 100 100" aria-hidden="true"><circle id="ring" cx="50" cy="50" r="48.5" pathLength="100" stroke-dasharray="0 100"/></svg>
+  <svg class="ic" id="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l14 8-14 8z"/></svg>
+</button>
+<button class="again" id="again" type="button" hidden>Listen again</button>
+<div class="msg" id="msg" role="status">Opening the file…</div>
+<div class="foot">Confidential · do not share</div>
+<script>
+(function(){
+'use strict';
+var WIT={w1:['Witness statement #1','Mr Frank Brooks'],w2:['Witness statement #2','Mrs Rosa Ortega'],w3:['Witness statement #3','Sam']};
+var $=function(s){return document.getElementById(s);};
+var PLAY='<path d="M7 4l14 8-14 8z"/>', PAUSE='<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+var audio=null;
+function fail(t){ $('msg').textContent=t; $('msg').className='msg err'; $('play').classList.add('loading'); }
+function b64u(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; var b=atob(s), u=new Uint8Array(b.length); for(var i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
+var m=/^#?(w[1-3]):([A-Za-z0-9_-]{16,})$/.exec(decodeURIComponent(location.hash||''));
+if(!m){ fail('This statement is locked. Scan the QR code on the card.'); return; }
+var id=m[1]; $('num').textContent=WIT[id][0]; $('who').textContent=WIT[id][1]; document.title=WIT[id][0];
+if(!(window.crypto&&crypto.subtle)){ fail('This phone can\'t open the file. Try another browser.'); return; }
+fetch(id+'.bin',{cache:'force-cache'}).then(function(r){ if(!r.ok) throw new Error('nf'); return r.arrayBuffer(); }).then(function(buf){
+  var key=b64u(m[2]), iv=new Uint8Array(buf,0,12), ct=new Uint8Array(buf,12);
+  return crypto.subtle.importKey('raw',key,{name:'AES-GCM'},false,['decrypt']).then(function(k){ return crypto.subtle.decrypt({name:'AES-GCM',iv:iv},k,ct); });
+}).then(function(plain){
+  audio=new Audio(URL.createObjectURL(new Blob([plain],{type:'audio/mpeg'}))); audio.preload='auto';
+  audio.addEventListener('timeupdate',prog); audio.addEventListener('ended',function(){ ic(PLAY); prog(); $('again').hidden=false; $('msg').textContent='End of statement.'; });
+  audio.addEventListener('play',function(){ ic(PAUSE); $('msg').textContent='Listening…'; }); audio.addEventListener('pause',function(){ if(!audio.ended){ ic(PLAY); $('msg').textContent='Paused.'; } });
+  $('play').classList.remove('loading'); $('msg').textContent='Tap to listen.';
+}).catch(function(){ fail('This statement is locked. Scan the QR code on the card again.'); });
+function ic(p){ $('ic').innerHTML=p; }
+function prog(){ if(!audio||!audio.duration) return; $('ring').setAttribute('stroke-dasharray',(audio.currentTime/audio.duration*100).toFixed(1)+' 100'); }
+$('play').addEventListener('click',function(){ if(!audio) return; if(audio.paused){ if(audio.ended) audio.currentTime=0; audio.play().catch(function(){}); } else audio.pause(); });
+$('again').addEventListener('click',function(){ if(!audio) return; audio.currentTime=0; $('again').hidden=true; audio.play().catch(function(){}); });
+(function(){ var c=$('grain'), x=c.getContext('2d'), d=x.createImageData(c.width,c.height), n=0; (function fr(){ requestAnimationFrame(fr); if(n++%4) return; var p=d.data; for(var i=0;i<p.length;i+=4){ var v=Math.random()*255|0; p[i]=p[i+1]=p[i+2]=v; p[i+3]=255; } x.putImageData(d,0,0); })(); })();
+})();
+</script>
+</body>
+</html>

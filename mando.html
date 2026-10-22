@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Mando Last Seen</title>
+<meta name="description" content="Mando de la profe para la app Lucy's Phone (escape room LAST SEEN)">
+<style>
+:root{--bg:#000;--ink:#d8d8de;--dim:#6d6d78;--red:#c4000f;--line:#26262c;color-scheme:dark}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#000; } }
+:root[data-theme="dark"]{ --bg:#000; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+body{min-height:100vh;padding:max(12px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+h1{margin:0;font-size:17px;letter-spacing:.2em;color:#8a8a94;font-weight:800}
+h1 b{color:#a3000c}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+#conn{font-size:13px;font-weight:700;color:#8a6a1a}
+#conn.ok{color:#2c8a45}#conn.bad{color:#a33}
+#state{background:#0c0c0f;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:12px;font-size:15px;line-height:1.45;min-height:64px}
+#state b{font-size:26px;color:#e4e4ea;font-variant-numeric:tabular-nums}
+#state .m{font-weight:800}
+#state .m.echo{color:#d0101e}
+#last{font-size:14px;color:var(--dim)}
+#last.ok{color:#3aa357}#last.bad{color:#c24a4a}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.b{min-height:84px;border-radius:18px;border:2px solid #2a2a31;background:#111114;color:#cfcfd6;font:inherit;font-size:19px;font-weight:800;letter-spacing:.02em;padding:8px;line-height:1.15;transition:transform .08s}
+.b small{display:block;font-size:12px;font-weight:600;color:#77777f;margin-top:4px;letter-spacing:0}
+.b:active{transform:scale(.96)}
+.b.echo{background:#3a0006;border-color:#7a0010;color:#ffb3b9}
+.b.full{grid-column:1/-1}
+.b.lights{background:#cfcfd4;color:#000;border-color:#fff;min-height:96px;font-size:24px}
+.b.lights small{color:#333}
+.b.sent{border-color:#8a6a1a}
+.b.ack{border-color:#2c8a45;box-shadow:0 0 0 3px rgba(44,138,69,.35)}
+.b.nack{border-color:#a33}
+.b:disabled{opacity:.35}
+.sec{grid-column:1/-1;font-size:12px;color:#55555e;letter-spacing:.14em;text-transform:uppercase;font-weight:800;margin-top:6px}
+#pair{display:none;flex-direction:column;gap:12px;margin-top:20px}
+#pair input{font:inherit;font-size:18px;padding:12px;border-radius:12px;border:2px solid #2a2a31;background:#111;color:#fff;font-family:ui-monospace,Consolas,monospace;user-select:text}
+#pair p{margin:0;color:#8a8a94;line-height:1.45}
+.note{margin-top:16px;font-size:12px;color:#4d4d55;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="top"><h1>LAST <b>SEEN</b> · MANDO</h1><span id="conn">conectando…</span></div>
+
+<div id="pair">
+  <p>Escribe el código que sale en el panel de la app (G) o escanea su QR.</p>
+  <input id="code" placeholder="lastseen-…" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <button class="b" type="button" id="go">Conectar</button>
+</div>
+
+<div id="ui" hidden>
+  <div id="state">Esperando respuesta de la app…<div id="last"></div></div>
+  <div class="grid">
+    <div class="sec">Modo</div>
+    <button class="b echo" type="button" data-c="echo_on">MODO ECHO<small>pantalla roja</small></button>
+    <button class="b" type="button" data-c="echo_off">PROFE<small>pantalla normal</small></button>
+    <div class="sec">Sustos</div>
+    <button class="b" type="button" data-c="scare1">Susto 1<small>apagón + cara</small></button>
+    <button class="b" type="button" data-c="scare2">Susto 2<small>llamada de Lucy</small></button>
+    <button class="b full" type="button" data-c="glitch">Glitch<small>susto 3, corto</small></button>
+    <div class="sec">Seguridad</div>
+    <button class="b lights full" type="button" data-c="lights_on">LIGHTS ON<small>para sonido, quita el rojo y pausa</small></button>
+    <div class="sec">Tiempo</div>
+    <button class="b" type="button" data-c="pause">Pausa</button>
+    <button class="b" type="button" data-c="resume">Seguir<small>(también quita LIGHTS ON)</small></button>
+    <button class="b" type="button" data-c="minus1">−1 min</button>
+    <button class="b" type="button" data-c="plus1">+1 min</button>
+    <div class="sec">Alumnos</div>
+    <button class="b full" type="button" data-c="hint">Abrir Help<small>pistas de Jay en el móvil de Lucy</small></button>
+  </div>
+  <div class="note">Solo se envían órdenes (echo_on, pause…) por ntfy.sh, nunca datos. Código: <span id="topic"></span> · <a href="#" id="unpair" style="color:#55555e">cambiar</a></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var NTFY='https://ntfy.sh/', KEY='lastSeen.mando.topic';
+var $=function(s){return document.querySelector(s);};
+var topic='', es=null, pending={}, lastAck=0;
+function valid(t){ return /^lastseen-[a-z0-9]{16,}$/.test(t); }
+function fromHash(){ var h=decodeURIComponent((location.hash||'').slice(1)).trim().toLowerCase(); return valid(h)?h:''; }
+function stored(){ try{ return localStorage.getItem(KEY)||''; }catch(e){ return ''; } }
+function start(t){
+  topic=t; try{ localStorage.setItem(KEY,t); }catch(e){}
+  $('#pair').style.display='none'; $('#ui').hidden=false; $('#topic').textContent=t;
+  if(es){ try{es.close();}catch(e){} }
+  conn('wait','conectando…');
+  es=new EventSource(NTFY+t+'-ack/sse');
+  es.addEventListener('open',function(){ conn('ok','listo'); send('ping',true); });
+  es.onerror=function(){ conn(navigator.onLine===false?'bad':'wait',navigator.onLine===false?'sin conexión':'reconectando…'); };
+  es.onmessage=function(ev){ var m; try{ m=JSON.parse(ev.data); }catch(e){ return; } if(!m||m.event!=='message') return; onAck(String(m.message||'')); };
+  wake();
+}
+function pairUI(){ $('#ui').hidden=true; $('#pair').style.display='flex'; conn('wait','sin emparejar'); }
+function conn(cls,txt){ var c=$('#conn'); c.className=cls; c.textContent=txt; }
+function send(cmd,quiet){
+  if(!topic) return; var b=document.querySelector('[data-c="'+cmd+'"]');
+  if(b){ b.classList.remove('ack','nack'); b.classList.add('sent'); }
+  pending[cmd]=Date.now(); if(navigator.vibrate) try{ navigator.vibrate(25); }catch(e){}
+  fetch(NTFY+topic,{method:'POST',body:cmd}).then(function(r){ if(!r.ok) throw 0; }).catch(function(){ if(!quiet) last('No se pudo enviar (¿hay internet?)','bad'); if(b){ b.classList.remove('sent'); b.classList.add('nack'); } });
+  setTimeout(function(){ if(pending[cmd]&&Date.now()-pending[cmd]>=4900){ delete pending[cmd]; if(b){ b.classList.remove('sent'); b.classList.add('nack'); } if(!quiet) last('La app no contesta: ¿está abierta y con internet?','bad'); } },5000);
+}
+var LABEL={echo_on:'Modo Echo',echo_off:'Modo profe',scare1:'Susto 1',scare2:'Susto 2',glitch:'Glitch',lights_on:'LIGHTS ON',pause:'Pausa',resume:'Seguir',plus1:'+1 min',minus1:'−1 min',hint:'Help',ping:'Conexión'};
+var RES={ok:'hecho ✓',off:'sustos desactivados en la app',busy:'ya hay un susto en marcha',idle:'la partida no ha empezado',error:'error en la app'};
+function onAck(msg){
+  var m=/^ack (\S+) (\S+) (.*)$/.exec(msg); if(!m) return; var cmd=m[1], res=m[2], st={};
+  m[3].split(';').forEach(function(kv){ var p=kv.split('='); st[p[0]]=p[1]; });
+  delete pending[cmd]; lastAck=Date.now();
+  var b=document.querySelector('[data-c="'+cmd+'"]'); if(b){ b.classList.remove('sent'); b.classList.add(res==='ok'?'ack':'nack'); setTimeout(function(){ b.classList.remove('ack','nack'); },2500); }
+  var ph={setup:'sin empezar',intro:'intro',playing:'en juego',won:'¡ganaron!',timeup:'tiempo agotado'}[st.phase]||st.phase;
+  $('#state').innerHTML='Quedan <b>'+(st.rem||'--:--')+'</b> · '+ph+(st.paused==='1'?' · <span class="m">PAUSA</span>':'')+(st.lights==='1'?' · <span class="m">LIGHTS ON</span>':'')+
+    '<br>Pantalla: <span class="m'+(st.echo==='1'?' echo':'')+'">'+(st.echo==='1'?'ECHO (roja)':'profe (normal)')+'</span>'+(st.scares==='0'?' · sustos OFF':'')+'<div id="last"></div>';
+  last((LABEL[cmd]||cmd)+': '+(RES[res]||res),res==='ok'?'ok':'bad');
+  conn('ok','conectado ✓');
+}
+function last(t,cls){ var l=$('#last'); if(l){ l.textContent=t; l.className=cls||''; } }
+document.addEventListener('click',function(e){ var b=e.target.closest('[data-c]'); if(b) send(b.getAttribute('data-c')); });
+$('#go').addEventListener('click',function(){ var v=$('#code').value.trim().toLowerCase(); if(valid(v)){ location.hash=v; start(v); } else $('#code').style.borderColor='#a33'; });
+$('#unpair').addEventListener('click',function(e){ e.preventDefault(); try{ localStorage.removeItem(KEY); }catch(er){} if(es) es.close(); topic=''; history.replaceState(null,'',location.pathname); pairUI(); });
+window.addEventListener('hashchange',function(){ var t=fromHash(); if(t&&t!==topic) start(t); });
+var lock=null; function wake(){ try{ if(navigator.wakeLock&&!lock) navigator.wakeLock.request('screen').then(function(l){ lock=l; l.addEventListener('release',function(){ lock=null; }); }).catch(function(){}); }catch(e){} }
+document.addEventListener('visibilitychange',function(){ if(!document.hidden&&topic) wake(); });
+var t=fromHash()||stored(); if(valid(t)) start(t); else pairUI();
+})();
+</script>
+</body>
+</html>
